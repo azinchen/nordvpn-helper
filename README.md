@@ -23,38 +23,28 @@ docker build -t azinchen/nordvpn-helper .
 
 ## Quick start
 
-```bash
-# Show help
-docker run --rm azinchen/nordvpn-helper help
-
-# Print WireGuard / NordLynx configuration
-docker run --rm \
-    --cap-add=NET_ADMIN \
-    --device /dev/net/tun \
-    -e NORDVPN_TOKEN=... \
-    -v nordvpn-data:/var/lib/nordvpn \
-    azinchen/nordvpn-helper wireguard-info
-```
-
-Or with docker-compose. Put your credentials in a `.env` file next to `docker-compose.yml`:
+Set your token and define a reusable alias for the published image. The
+capabilities, token, and volume are harmless for commands that don't use them:
 
 ```bash
-# .env
-NORDVPN_TOKEN=your-long-token-here
+export NORDVPN_TOKEN=your-long-token-here
+
+alias nordvpn-helper='docker run --rm -e NORDVPN_TOKEN -e OUTPUT_FORMAT \
+    --cap-add=NET_ADMIN --device /dev/net/tun \
+    -v nordvpn-data:/var/lib/nordvpn azinchen/nordvpn-helper'
+
+nordvpn-helper help
+nordvpn-helper wireguard-info                        # recommended server
+nordvpn-helper wireguard-info United_States Chicago  # a specific location
+nordvpn-helper wireguard-info us9999                 # a specific server
+
+# JSON instead of a config file:
+OUTPUT_FORMAT=json nordvpn-helper wireguard-info
 ```
 
-then:
-
-```bash
-docker compose run --rm nordvpn-helper help
-docker compose run --rm nordvpn-helper wireguard-info               # recommended server
-docker compose run --rm nordvpn-helper wireguard-info United_States Chicago
-docker compose run --rm nordvpn-helper wireguard-info P2P           # a group
-docker compose run --rm nordvpn-helper wireguard-info us9999        # a specific server
-
-# JSON output instead of a config file:
-docker compose run --rm -e OUTPUT_FORMAT=json nordvpn-helper wireguard-info
-```
+The API-only commands (`recommend`, `openvpn-config`, `technologies`,
+`credentials`) need neither `--cap-add=NET_ADMIN` nor `--device /dev/net/tun` —
+drop them if that's all you run.
 
 ## Commands
 
@@ -77,21 +67,23 @@ Every command prints text by default, or JSON with `OUTPUT_FORMAT=json`.
 - `account`, `countries`, `cities`, `groups` query the daemon (login, but no tunnel).
 - `help`, `credentials`, `technologies`, `openvpn-config`, and `recommend` (API variant) need neither the daemon nor capabilities — they hit the HTTP API or a static download (`technologies --source cli` is a static list).
 
+Using the `nordvpn-helper` alias from [Quick start](#quick-start):
+
 ```bash
-docker compose run --rm nordvpn-helper countries
-docker compose run --rm -e OUTPUT_FORMAT=json nordvpn-helper groups
-docker compose run --rm nordvpn-helper cities United_States
+nordvpn-helper countries
+OUTPUT_FORMAT=json nordvpn-helper groups
+nordvpn-helper cities United_States
 
 # Recommended servers — omit any filter to widen the search:
-docker compose run --rm nordvpn-helper recommend --country United_States --city Chicago --tech nordlynx --group P2P --limit 3
-docker compose run --rm nordvpn-helper recommend --tech nordlynx --limit 5
+nordvpn-helper recommend --country United_States --city Chicago --tech nordlynx --group P2P --limit 3
+nordvpn-helper recommend --tech nordlynx --limit 5
 
 # Same query against the daemon instead of the HTTP API (returns one server):
-docker compose run --rm nordvpn-helper recommend --source cli --country United_States --tech nordlynx
+nordvpn-helper recommend --source cli --country United_States --tech nordlynx
 
 # OpenVPN config for a specific server (save it to a file):
-docker compose run --rm nordvpn-helper openvpn-config us9999 > us9999.ovpn
-docker compose run --rm nordvpn-helper openvpn-config us9999 --protocol tcp > us9999.tcp.ovpn
+nordvpn-helper openvpn-config us9999 > us9999.ovpn
+nordvpn-helper openvpn-config us9999 --protocol tcp > us9999.tcp.ovpn
 ```
 
 ### Which `--tech` to use with `recommend`
@@ -148,8 +140,9 @@ docker run --rm \
 - `recommend` resolves names via NordVPN's public HTTP API (`api.nordvpn.com`);
   the other server lists come from the `nordvpn` CLI, which can't enumerate
   individual servers.
-- `nordvpnd` startup adds a few seconds of overhead per command (except `help`,
-  `recommend`, and `credentials`, which don't need the daemon).
+- `nordvpnd` startup adds a few seconds of overhead per command, except the ones
+  that skip the daemon entirely (`help`, `technologies`, `credentials`,
+  `openvpn-config`, and `recommend` without `--source cli`).
 - Login is token-only. The current NordVPN client removed username/password
   login, and its default flow opens a browser — neither works headless, so
   `NORDVPN_TOKEN` is required.
