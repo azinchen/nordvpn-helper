@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Maintain pinned versions for GitHub Actions (the workflow under
+  # .github/workflows/ uses fully pinned action versions).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automation"
+    open-pull-requests-limit: 5
+
+  # The Dockerfile base image is pinned to the `ubuntu:26.04` LTS tag, which
+  # keeps receiving patches in place; major LTS bumps are intentionally left to
+  # a manual decision, so Dockerfile updates are not managed by Dependabot.

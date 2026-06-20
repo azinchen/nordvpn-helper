@@ -1,0 +1,74 @@
+name: CI - Build and Deploy
+
+on:
+  push:
+    # Publish :latest from the main branch only — no tags.
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write   # push to GitHub Container Registry with GITHUB_TOKEN
+
+# Don't let two main pushes race to publish :latest.
+concurrency:
+  group: deploy-latest
+  cancel-in-progress: true
+
+env:
+  # ubuntu:26.04 base ∩ NordVPN apt package availability.
+  PLATFORMS: "linux/amd64,linux/arm64,linux/arm/v7"
+
+jobs:
+  build-and-deploy:
+    name: 🏗️ Build and push :latest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+
+      # === AUTHENTICATION PHASE ===
+      - name: Login to DockerHub
+        uses: docker/login-action@v4.2.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # === DOCKER BUILD SETUP PHASE ===
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4.1.0
+        with:
+          platforms: ${{ env.PLATFORMS }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.1.0
+
+      # === BUILD AND PUSH PHASE ===
+      - name: Build and push image (latest)
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: .
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:latest
+
+      # === MONITORING PHASE ===
+      - name: Build summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo "📊 Published :latest"
+          echo "- Platforms: ${{ env.PLATFORMS }}"
+          echo "- Docker Hub: docker.io/${{ github.repository }}:latest"
+          echo "- GHCR:       ghcr.io/${{ github.repository }}:latest"
