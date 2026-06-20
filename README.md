@@ -1,5 +1,15 @@
 # NordVPN Helper
 
+[![Build][github-build]][github-actions]
+[![GitHub stars][github-stars]][github-link]
+[![GitHub forks][github-forks]][github-link]
+[![Open issues][github-issues]][github-issues-link]
+[![Last commit][github-lastcommit]][github-link]<br>
+[![Docker pulls][dockerhub-pulls]][dockerhub-link]
+[![Docker stars][dockerhub-stars]][dockerhub-link]
+[![Docker image size][dockerhub-size]][dockerhub-link]
+[![Multi-arch][multiarch-badge]][dockerhub-link]
+
 > Pull NordVPN connection configs and info from a token — non-interactively, in Docker.
 
 A non-interactive Docker wrapper around the [NordVPN Linux client](https://nordvpn.com/download/linux/). From just a login token it extracts connection configs and account info — WireGuard/NordLynx, OpenVPN, and IKEv2 setups, service credentials, and server discovery — with structured (text or JSON) output and no TTY.
@@ -156,3 +166,18 @@ docker run --rm \
 - Login is token-only. The current NordVPN client removed username/password
   login, and its default flow opens a browser — neither works headless, so
   `NORDVPN_TOKEN` is required.
+
+<!-- Badges -->
+[github-build]: https://img.shields.io/github/actions/workflow/status/azinchen/nordvpn-helper/ci-build-deploy.yml?branch=main&label=build
+[github-actions]: https://github.com/azinchen/nordvpn-helper/actions/workflows/ci-build-deploy.yml
+[github-stars]: https://img.shields.io/github/stars/azinchen/nordvpn-helper
+[github-forks]: https://img.shields.io/github/forks/azinchen/nordvpn-helper
+[github-issues]: https://img.shields.io/github/issues/azinchen/nordvpn-helper
+[github-issues-link]: https://github.com/azinchen/nordvpn-helper/issues
+[github-lastcommit]: https://img.shields.io/github/last-commit/azinchen/nordvpn-helper
+[github-link]: https://github.com/azinchen/nordvpn-helper
+[dockerhub-pulls]: https://img.shields.io/docker/pulls/azinchen/nordvpn-helper
+[dockerhub-stars]: https://img.shields.io/docker/stars/azinchen/nordvpn-helper
+[dockerhub-size]: https://img.shields.io/docker/image-size/azinchen/nordvpn-helper/latest
+[dockerhub-link]: https://hub.docker.com/r/azinchen/nordvpn-helper
+[multiarch-badge]: https://img.shields.io/badge/arch-amd64%20%7C%20arm64%20%7C%20arm%2Fv7-blue
