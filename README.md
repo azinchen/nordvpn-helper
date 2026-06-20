@@ -1,6 +1,8 @@
-# nordvpn-helper
+# NordVPN Helper
 
-A non-interactive Docker wrapper around the [NordVPN Linux client](https://nordvpn.com/download/linux/). Get information from NordVPN (currently: the WireGuard / NordLynx configuration) without manual interaction.
+> Pull NordVPN connection configs and info from a token — non-interactively, in Docker.
+
+A non-interactive Docker wrapper around the [NordVPN Linux client](https://nordvpn.com/download/linux/). From just a login token it extracts connection configs and account info — WireGuard/NordLynx, OpenVPN, and IKEv2 setups, service credentials, and server discovery — with structured (text or JSON) output and no TTY.
 
 ## Why
 
