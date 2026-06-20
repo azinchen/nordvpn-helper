@@ -1,0 +1,6 @@
+.claude
+docker-compose.yml
+.env
+__pycache__/
+*.pyc
+.claude
