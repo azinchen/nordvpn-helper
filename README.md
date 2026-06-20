@@ -59,13 +59,14 @@ drop them if that's all you run.
 | `account` | Show the logged-in account (email, subscription) |
 | `credentials` | Show the service credentials derived from the token: manual OpenVPN/IKEv2 username & password, plus the NordLynx private key |
 | `recommend [filters]` | List recommended servers. `--source api` (default) queries the HTTP API and lists many servers with load; `--source cli` connects via the daemon and reports the one server it picks. Filters (all optional): `--country`, `--city`, `--tech`, `--group`, `--limit` (api only; default 5, `0` = all) |
-| `openvpn-config <server> [--protocol udp\|tcp]` | Print the OpenVPN (`.ovpn`) config for a specific server (e.g. `us9999` or `us9999.nordvpn.com`). Default protocol: `udp`. Pair with `credentials` for the `auth-user-pass` login |
+| `openvpn-config <server> [--protocol udp\|tcp] [--with-credentials]` | Print the OpenVPN (`.ovpn`) config for a specific server (e.g. `us9999`). Default protocol: `udp`. `--with-credentials` inlines the service username/password so the config is self-contained (⚠️ contains a secret) |
+| `ikev2-info [server]` | Print IKEv2/IPSec parameters for manual setup — server address, remote ID, service username/password, and NordVPN's root CA. No connection needed. Default: a recommended IKEv2 server |
 
 Every command prints text by default, or JSON with `OUTPUT_FORMAT=json`.
 
 - `wireguard-info` and `recommend --source cli` establish a tunnel, so they need `NET_ADMIN` + `/dev/net/tun`.
 - `account`, `countries`, `cities`, `groups` query the daemon (login, but no tunnel).
-- `help`, `credentials`, `technologies`, `openvpn-config`, and `recommend` (API variant) need neither the daemon nor capabilities — they hit the HTTP API or a static download (`technologies --source cli` is a static list).
+- `help`, `credentials`, `technologies`, `openvpn-config`, `ikev2-info`, and `recommend` (API variant) need neither the daemon nor capabilities — they hit the HTTP API or a static download (`technologies --source cli` is a static list).
 
 Using the `nordvpn-helper` alias from [Quick start](#quick-start):
 
@@ -84,6 +85,13 @@ nordvpn-helper recommend --source cli --country United_States --tech nordlynx
 # OpenVPN config for a specific server (save it to a file):
 nordvpn-helper openvpn-config us9999 > us9999.ovpn
 nordvpn-helper openvpn-config us9999 --protocol tcp > us9999.tcp.ovpn
+
+# Self-contained .ovpn with credentials inlined (ready for `openvpn --config`):
+nordvpn-helper openvpn-config us9999 --with-credentials > us9999.ovpn
+
+# IKEv2/IPSec parameters for manual setup (no connection needed):
+nordvpn-helper ikev2-info              # a recommended IKEv2 server
+nordvpn-helper ikev2-info de718        # a specific server
 ```
 
 ### Which `--tech` to use with `recommend`
@@ -142,7 +150,7 @@ docker run --rm \
   individual servers.
 - `nordvpnd` startup adds a few seconds of overhead per command, except the ones
   that skip the daemon entirely (`help`, `technologies`, `credentials`,
-  `openvpn-config`, and `recommend` without `--source cli`).
+  `openvpn-config`, `ikev2-info`, and `recommend` without `--source cli`).
 - Login is token-only. The current NordVPN client removed username/password
   login, and its default flow opens a browser — neither works headless, so
   `NORDVPN_TOKEN` is required.

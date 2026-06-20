@@ -17,7 +17,7 @@ COMMAND="${1:-help}"
 # help/technologies/credentials never touch the daemon; recommend only needs it
 # for its CLI variant (`--source cli`), which connects via the daemon.
 case "${COMMAND}" in
-    help | -h | --help | "" | technologies | credentials | openvpn-config)
+    help | -h | --help | "" | technologies | credentials | openvpn-config | ikev2-info)
         exec "${HELPER[@]}" "$@"
         ;;
     recommend)

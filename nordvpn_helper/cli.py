@@ -44,10 +44,12 @@ Commands:
                          --country <name>  --city <name>
                          --tech <name>     --group <name>
                          --limit <n>       (api only; default 5, 0 = all)
-  openvpn-config <server> [--protocol udp|tcp]
+  openvpn-config <server> [--protocol udp|tcp] [--with-credentials]
                        Print the OpenVPN (.ovpn) config for a server (e.g.
-                       us9999). Default protocol: udp. Use the `credentials`
-                       command for the auth-user-pass username/password.
+                       us9999). Default protocol: udp. --with-credentials inlines
+                       the service username/password (self-contained, secret).
+  ikev2-info [server]  Print IKEv2/IPSec parameters (server, username, password,
+                       CA) for manual setup. Default: a recommended IKEv2 server.
 
 Environment variables:
   NORDVPN_TOKEN          NordVPN login token (required; the only non-interactive
@@ -203,6 +205,7 @@ def cmd_credentials(_args: List[str]) -> int:
 def cmd_openvpn_config(args: List[str]) -> int:
     server: Optional[str] = None
     protocol = "udp"
+    with_credentials = False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -211,8 +214,11 @@ def cmd_openvpn_config(args: List[str]) -> int:
                 raise UsageError("--protocol requires a value (udp or tcp)")
             protocol = args[i + 1].strip().lower()
             i += 2
+        elif arg == "--with-credentials":
+            with_credentials = True
+            i += 1
         elif arg.startswith("-"):
-            raise UsageError(f"unknown option {arg!r}; valid: --protocol")
+            raise UsageError(f"unknown option {arg!r}; valid: --protocol --with-credentials")
         elif server is None:
             server = arg
             i += 1
@@ -229,12 +235,42 @@ def cmd_openvpn_config(args: List[str]) -> int:
     except LookupError as exc:
         raise UsageError(str(exc))
 
+    if with_credentials:
+        creds = api.service_credentials(os.environ.get("NORDVPN_TOKEN", "").strip())
+        config = api.embed_credentials(config, creds["username"], creds["password"])
+
     if _output_format() == "json":
         print(json.dumps(
             {"server": api.hostname(server), "protocol": protocol, "config": config},
             indent=2))
     else:
         print(config, end="")
+    return EXIT_OK
+
+
+def cmd_ikev2_info(args: List[str]) -> int:
+    server: Optional[str] = None
+    for arg in args:
+        if arg.startswith("-"):
+            raise UsageError(f"unknown option {arg!r}")
+        if server is not None:
+            raise UsageError(f"unexpected argument {arg!r}")
+        server = arg
+
+    token = os.environ.get("NORDVPN_TOKEN", "").strip()
+    try:
+        params = api.ikev2_params(token, server)
+    except LookupError as exc:
+        raise UsageError(str(exc))
+
+    if _output_format() == "json":
+        print(json.dumps(params, indent=2))
+    else:
+        for key in ("vpn_type", "server", "ip", "remote_id", "username", "password"):
+            print(f"{key} = {params[key]}")
+        if params["ca"]:
+            print("ca =")
+            print(params["ca"])
     return EXIT_OK
 
 
@@ -346,6 +382,7 @@ COMMANDS: Dict[str, Callable[[List[str]], int]] = {
     "credentials": cmd_credentials,
     "recommend": cmd_recommend,
     "openvpn-config": cmd_openvpn_config,
+    "ikev2-info": cmd_ikev2_info,
 }
 
 

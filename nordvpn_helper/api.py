@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import socket
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -184,6 +185,73 @@ def recommend(
     )
     servers = _get("servers/recommendations", query)
     return [_summarise(s) for s in servers]
+
+
+def embed_credentials(config: str, username: str, password: str) -> str:
+    """Inline auth credentials into an .ovpn so it connects without prompting.
+
+    Replaces the bare ``auth-user-pass`` directive with an inline block.
+    """
+    block = f"<auth-user-pass>\n{username}\n{password}\n</auth-user-pass>"
+    lines, replaced = [], False
+    for line in config.splitlines():
+        if line.strip() == "auth-user-pass":
+            lines.append(block)
+            replaced = True
+        else:
+            lines.append(line)
+    if not replaced:
+        lines.append(block)
+    return "\n".join(lines) + "\n"
+
+
+def root_ca(server: str) -> str:
+    """Return NordVPN's root CA (PEM) extracted from a server's OpenVPN config."""
+    config = openvpn_config(server, "udp")
+    start, end = config.find("<ca>"), config.find("</ca>")
+    if start == -1 or end == -1:
+        raise LookupError("no <ca> block found in the OpenVPN config")
+    return config[start + len("<ca>"):end].strip()
+
+
+def ikev2_params(token: str, server: Optional[str] = None) -> Dict[str, object]:
+    """Gather everything needed for a manual IKEv2/IPSec connection.
+
+    No tunnel required: the server comes from the API (or the caller), the
+    username/password from the token, and the CA from a server's OpenVPN config.
+    """
+    if server:
+        host = hostname(server)
+    else:
+        recommended = recommend(tech="ikev2", limit=1)
+        if not recommended:
+            raise RuntimeError("no IKEv2-capable server is currently available")
+        host = str(recommended[0]["hostname"])
+
+    try:
+        ip = socket.gethostbyname(host)
+    except OSError:
+        ip = ""
+
+    creds = service_credentials(token)
+
+    try:
+        ca = root_ca(host)
+    except (LookupError, RuntimeError):
+        # The CA is identical across servers; fall back to a recommended one if
+        # this host has no downloadable OpenVPN config.
+        fallback = recommend(limit=1)
+        ca = root_ca(str(fallback[0]["hostname"])) if fallback else ""
+
+    return {
+        "vpn_type": "IKEv2/IPSec",
+        "server": host,
+        "ip": ip,
+        "remote_id": host,
+        "username": creds["username"],
+        "password": creds["password"],
+        "ca": ca,
+    }
 
 
 def service_credentials(token: str) -> Dict[str, object]:
