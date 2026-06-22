@@ -187,6 +187,146 @@ def recommend(
     return [_summarise(s) for s in servers]
 
 
+def server_record(server: str) -> Dict[str, object]:
+    """Return the raw server record exactly as NordVPN's API returns it.
+
+    ``server`` may be a short reference (e.g. "us9999") or a full hostname.
+    Raises LookupError if no server with that hostname exists. Use this when you
+    want everything the API exposes, including fields the helper does not curate.
+    """
+    host = hostname(server)
+    server_id = _resolve_server_id(host)
+    query = (
+        f"filters{urllib.parse.quote('[servers.id]', safe='[]')}="
+        f"{urllib.parse.quote(str(server_id))}&limit=1"
+    )
+    servers = _get("servers", query)
+    if not isinstance(servers, list) or not servers:
+        raise RuntimeError(f"server {host!r} (id {server_id}) disappeared from the API")
+    return servers[0]
+
+
+def server_metadata(server: str) -> Dict[str, object]:
+    """Return a flattened, curated view of a server's metadata.
+
+    ``server`` may be a short reference (e.g. "us9999") or a full hostname.
+    Raises LookupError if no server with that hostname exists.
+    """
+    return _describe(server_record(server))
+
+
+def _resolve_server_id(host: str) -> int:
+    """Find a server's numeric id by hostname via a lightweight server listing.
+
+    The /servers endpoint silently ignores a hostname filter, so we pull the
+    full list trimmed to id + hostname (a few hundred KB instead of tens of MB,
+    via the ``fields`` parameter) and match the hostname locally.
+    """
+    query = (
+        "limit=0"
+        f"&fields{urllib.parse.quote('[servers.id]', safe='[]')}"
+        f"&fields{urllib.parse.quote('[servers.hostname]', safe='[]')}"
+    )
+    listing = _get("servers", query)
+    if isinstance(listing, list):
+        want = _norm(host)
+        match = next(
+            (s for s in listing if _norm(str(s.get("hostname", ""))) == want),
+            None,
+        )
+        if match is not None:
+            return int(match["id"])
+    raise LookupError(f"no server found with hostname {host!r}; check the name")
+
+
+def _tech_metadata(server: Dict[str, object], identifier: str, name: str) -> str:
+    """Pull a named metadata value from one of a server's technologies."""
+    for tech in server.get("technologies", []):
+        if tech.get("identifier") == identifier:
+            for entry in tech.get("metadata") or []:
+                if entry.get("name") == name:
+                    return str(entry.get("value", ""))
+    return ""
+
+
+def _technology_metadata(server: Dict[str, object]) -> Dict[str, Dict[str, str]]:
+    """Collect every per-technology metadata entry as {identifier: {name: value}}.
+
+    Captures whatever NordVPN exposes per technology — e.g. the WireGuard
+    public_key, the proxy_hostname for proxy technologies, the NordWhisper port.
+    """
+    result: Dict[str, Dict[str, str]] = {}
+    for tech in server.get("technologies", []):
+        identifier = tech.get("identifier")
+        entries = {
+            entry["name"]: str(entry.get("value", ""))
+            for entry in (tech.get("metadata") or [])
+            if entry.get("name")
+        }
+        if identifier and entries:
+            result[identifier] = entries
+    return result
+
+
+def _specifications(server: Dict[str, object]) -> Dict[str, object]:
+    """Flatten the specifications block into {identifier: value}.
+
+    A single value is unwrapped; multiple values are kept as a list (the API
+    currently exposes just the server "version").
+    """
+    specs: Dict[str, object] = {}
+    for spec in server.get("specifications", []):
+        identifier = spec.get("identifier")
+        values = [v.get("value") for v in spec.get("values", []) if v.get("value") is not None]
+        if not identifier or not values:
+            continue
+        specs[identifier] = values[0] if len(values) == 1 else values
+    return specs
+
+
+def _describe(server: Dict[str, object]) -> Dict[str, object]:
+    """Flatten a raw server record into a readable metadata mapping."""
+    location = (server.get("locations") or [{}])[0]
+    location = location if isinstance(location, dict) else {}
+    country = location.get("country", {}) if isinstance(location, dict) else {}
+    city = country.get("city", {}) if isinstance(country, dict) else {}
+    return {
+        "id": server.get("id", ""),
+        "name": server.get("name", ""),
+        "hostname": server.get("hostname", ""),
+        "status": server.get("status", ""),
+        "load": server.get("load"),
+        "ip": server.get("station", ""),
+        "ipv6": server.get("ipv6_station", ""),
+        "country": country.get("name", ""),
+        "country_code": country.get("code", ""),
+        "city": city.get("name", ""),
+        "latitude": location.get("latitude", ""),
+        "longitude": location.get("longitude", ""),
+        "dns_name": city.get("dns_name", ""),
+        "hub_score": city.get("hub_score", ""),
+        "created_at": server.get("created_at", ""),
+        "updated_at": server.get("updated_at", ""),
+        "specifications": _specifications(server),
+        "technologies": sorted(
+            t.get("identifier", "") for t in server.get("technologies", [])
+            if t.get("identifier")
+        ),
+        # Per-technology metadata (proxy hostnames, NordWhisper port, ...).
+        "technology_metadata": _technology_metadata(server),
+        # The WireGuard server public key lives in the wireguard_udp technology's
+        # metadata; paired with the NordLynx private key from `credentials` it is
+        # enough to build a WireGuard config without connecting. Also present in
+        # technology_metadata; surfaced here as a documented convenience.
+        "wireguard_public_key": _tech_metadata(server, "wireguard_udp", "public_key"),
+        "groups": [g.get("title", "") for g in server.get("groups", [])],
+        "services": sorted(
+            s.get("identifier", "") for s in server.get("services", [])
+            if s.get("identifier")
+        ),
+    }
+
+
 def embed_credentials(config: str, username: str, password: str) -> str:
     """Inline auth credentials into an .ovpn so it connects without prompting.
 

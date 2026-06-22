@@ -50,6 +50,13 @@ Commands:
                        the service username/password (self-contained, secret).
   ikev2-info [server]  Print IKEv2/IPSec parameters (server, username, password,
                        CA) for manual setup. Default: a recommended IKEv2 server.
+  server-info <server> [--raw]
+                       Show all metadata for a server (location, load, status,
+                       version, technologies and their metadata — WireGuard
+                       public key, proxy hostnames, NordWhisper port — groups,
+                       services) from the HTTP API. server is a short reference
+                       or hostname (e.g. us9999). --raw dumps the API's server
+                       record verbatim (JSON), exposing any uncurated fields.
 
 Environment variables:
   NORDVPN_TOKEN          NordVPN login token (required; the only non-interactive
@@ -248,6 +255,63 @@ def cmd_openvpn_config(args: List[str]) -> int:
     return EXIT_OK
 
 
+def cmd_server_info(args: List[str]) -> int:
+    server: Optional[str] = None
+    raw = False
+    for arg in args:
+        if arg == "--raw":
+            raw = True
+        elif arg.startswith("-"):
+            raise UsageError(f"unknown option {arg!r}; valid: --raw")
+        elif server is None:
+            server = arg
+        else:
+            raise UsageError(f"unexpected argument {arg!r}")
+
+    if not server:
+        raise UsageError("server-info requires a server, e.g. `server-info us9999`")
+
+    try:
+        # --raw dumps the API's server record verbatim (always JSON, since the
+        # record is a nested object) so fields the helper doesn't curate stay
+        # available; otherwise emit the flattened, curated view.
+        if raw:
+            print(json.dumps(api.server_record(server), indent=2))
+            return EXIT_OK
+        meta = api.server_metadata(server)
+    except LookupError as exc:
+        raise UsageError(str(exc))
+
+    if _output_format() == "json":
+        print(json.dumps(meta, indent=2))
+    else:
+        for key in ("id", "name", "hostname", "status", "load", "ip", "ipv6",
+                    "country", "country_code", "city", "latitude", "longitude",
+                    "dns_name", "hub_score", "created_at", "updated_at"):
+            value = meta[key]
+            if value not in ("", None):
+                suffix = "%" if key == "load" else ""
+                print(f"{key} = {value}{suffix}")
+        for identifier, value in meta["specifications"].items():
+            rendered = ", ".join(value) if isinstance(value, list) else value
+            print(f"{identifier} = {rendered}")
+        if meta["technologies"]:
+            print(f"technologies = {', '.join(meta['technologies'])}")
+        if meta["wireguard_public_key"]:
+            print(f"wireguard_public_key = {meta['wireguard_public_key']}")
+        for tech in sorted(meta["technology_metadata"]):
+            for name, value in meta["technology_metadata"][tech].items():
+                # Shown above as the dedicated wireguard_public_key line.
+                if tech == "wireguard_udp" and name == "public_key":
+                    continue
+                print(f"{tech}.{name} = {value}")
+        if meta["groups"]:
+            print(f"groups = {', '.join(meta['groups'])}")
+        if meta["services"]:
+            print(f"services = {', '.join(meta['services'])}")
+    return EXIT_OK
+
+
 def cmd_ikev2_info(args: List[str]) -> int:
     server: Optional[str] = None
     for arg in args:
@@ -383,6 +447,7 @@ COMMANDS: Dict[str, Callable[[List[str]], int]] = {
     "recommend": cmd_recommend,
     "openvpn-config": cmd_openvpn_config,
     "ikev2-info": cmd_ikev2_info,
+    "server-info": cmd_server_info,
 }
 
 
