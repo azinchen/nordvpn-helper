@@ -67,7 +67,7 @@ jobs:
       # The build/push step only uploads image layers — Docker Hub's repo
       # overview stays empty unless we push README.md to it explicitly.
       - name: Update Docker Hub description
-        uses: peter-evans/dockerhub-description@v4.0.2
+        uses: peter-evans/dockerhub-description@v5.0.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
