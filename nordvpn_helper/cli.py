@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
+import sys
 from typing import Callable, Dict, List, Optional
 
 from . import api
@@ -25,6 +27,10 @@ Usage:
 
 Commands:
   help                 Show this message.
+  shell                Start an interactive REPL: run commands line by line in a
+                       single process (and, in the container, against one
+                       already-started daemon) instead of paying startup per
+                       command. Quit with `exit`, `quit`, or Ctrl-D.
   wireguard-info [target]
                        Connect via NordLynx and print the WireGuard config.
                        target (optional) is passed to `nordvpn connect`: a
@@ -121,6 +127,43 @@ def _emit_key_values(raw: str, fmt: str) -> None:
 
 def cmd_help(_args: List[str]) -> int:
     print(HELP_TEXT, end="")
+    return EXIT_OK
+
+
+def cmd_shell(_args: List[str]) -> int:
+    """Read commands line by line and dispatch each in this one process.
+
+    Avoids per-command process/container/daemon startup: in the container the
+    entrypoint starts nordvpnd once before dropping into this loop. Reads until
+    EOF (Ctrl-D) or an `exit`/`quit` line; a failing command logs its error and
+    the loop continues. The prompt goes to stderr so stdout stays pure command
+    output (configs, JSON) for redirection.
+    """
+    log("interactive shell — type 'help' for commands; 'exit', 'quit' or Ctrl-D to leave")
+    while True:
+        try:
+            print(f"{PROG}> ", end="", file=sys.stderr, flush=True)
+            line = input()
+        except EOFError:
+            print(file=sys.stderr)  # newline after a Ctrl-D at the prompt
+            break
+        except KeyboardInterrupt:
+            print(file=sys.stderr)  # Ctrl-C abandons the line, keeps the shell
+            continue
+
+        try:
+            argv = shlex.split(line)
+        except ValueError as exc:
+            log(f"parse error: {exc}")
+            continue
+        if not argv:
+            continue
+        if argv[0] in ("exit", "quit"):
+            break
+        if argv[0] == "shell":
+            log("already in a shell")
+            continue
+        dispatch(argv)
     return EXIT_OK
 
 
@@ -437,6 +480,7 @@ COMMANDS: Dict[str, Callable[[List[str]], int]] = {
     "help": cmd_help,
     "--help": cmd_help,
     "-h": cmd_help,
+    "shell": cmd_shell,
     "wireguard-info": cmd_wireguard_info,
     "countries": cmd_countries,
     "cities": cmd_cities,
@@ -451,10 +495,11 @@ COMMANDS: Dict[str, Callable[[List[str]], int]] = {
 }
 
 
-def main(argv: List[str]) -> int:
-    if not argv:
-        return cmd_help([])
+def dispatch(argv: List[str]) -> int:
+    """Run a single command (argv[0] + args), mapping errors to exit codes.
 
+    Shared by one-shot invocation (`main`) and the interactive `shell` loop.
+    """
     command, args = argv[0], argv[1:]
     handler = COMMANDS.get(command)
     if handler is None:
@@ -473,3 +518,9 @@ def main(argv: List[str]) -> int:
     except KeyboardInterrupt:
         log("interrupted")
         return EXIT_RUNTIME
+
+
+def main(argv: List[str]) -> int:
+    if not argv:
+        return cmd_help([])
+    return dispatch(argv)

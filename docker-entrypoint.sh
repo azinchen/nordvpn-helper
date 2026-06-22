@@ -3,6 +3,9 @@
 # Container entrypoint: dispatch to the nordvpn_helper Python app. For commands
 # that need the VPN, start the nordvpnd daemon in the background and wait for it
 # to be ready first. `help` (and no command) run immediately without the daemon.
+# `shell` (the interactive REPL) is intentionally not in the no-daemon list: it
+# falls through to the daemon-start path so the REPL runs against one already
+# started nordvpnd. Run it with `docker run -it ... shell`.
 #
 set -eu
 

@@ -62,6 +62,7 @@ run.
 | Command | What it does |
 |---|---|
 | `help` | Show usage and env vars |
+| `shell` | Start an interactive REPL — run commands line by line in one long-lived process against a single already-started daemon, instead of paying container/daemon startup per command. See [Interactive mode](#interactive-mode). Quit with `exit`, `quit`, or Ctrl-D |
 | `wireguard-info [target]` | Connect with NordLynx and print the WireGuard configuration. `target` is passed to `nordvpn connect` — a country, city, server, or group (e.g. `United_States Chicago`, `us9999`, `P2P`). Default: the recommended server |
 | `countries` | List the countries NordVPN has servers in |
 | `cities <country>` | List the cities with servers in a country (e.g. `cities United_States`) |
@@ -78,6 +79,7 @@ Every command prints text by default, or JSON with `OUTPUT_FORMAT=json`.
 
 - `wireguard-info` and `recommend --source cli` establish a tunnel, so they need `NET_ADMIN` + `/dev/net/tun`.
 - `account` queries the daemon (login, but no tunnel) — it reports the daemon's logged-in session.
+- `shell` starts the daemon once on launch and then runs any command, so give it the tunnel capabilities if you plan to use `wireguard-info` from inside it.
 - `help`, `credentials`, `technologies`, `openvpn-config`, `ikev2-info`, `server-info`, `countries`, `cities`, `groups`, and `recommend` (API variant) need neither the daemon nor capabilities — they hit the HTTP API or a static download (`technologies --source cli` is a static list).
 
 Using the `nordvpn-helper` alias from [Quick start](#quick-start):
@@ -113,6 +115,39 @@ OUTPUT_FORMAT=json nordvpn-helper server-info pl128.nordvpn.com
 nordvpn-helper server-info us9999 --raw
 ```
 
+## Interactive mode
+
+Each `docker run` creates a fresh container and (for daemon commands) waits for
+`nordvpnd` to start, so running many commands back to back is slow. The `shell`
+command opens an interactive REPL instead: the container starts the daemon **once**
+on launch, then you type commands line by line in that one long-lived process.
+
+Run it with an interactive TTY (`-it`):
+
+```bash
+docker run --rm -it \
+    -e NORDVPN_TOKEN -e OUTPUT_FORMAT \
+    --cap-add=NET_ADMIN --device /dev/net/tun \
+    -v nordvpn-data:/var/lib/nordvpn azinchen/nordvpn-helper shell
+
+# …or with compose:
+docker compose run --rm nordvpn-helper shell
+```
+
+```text
+[entrypoint] nordvpnd ready; running: shell
+[nordvpn-helper] interactive shell — type 'help' for commands; 'exit', 'quit' or Ctrl-D to leave
+nordvpn-helper> countries
+nordvpn-helper> recommend --country United_States --limit 3
+nordvpn-helper> wireguard-info        # reuses the daemon already running
+nordvpn-helper> exit
+```
+
+Each line takes the same arguments as the one-shot commands (quote as you would in a
+shell — parsing follows normal shell word-splitting). The prompt and diagnostics go
+to stderr, so command output on stdout stays clean for redirection. A failing command
+prints its error and the shell keeps running. Quit with `exit`, `quit`, or Ctrl-D.
+
 ### Which `--tech` to use with `recommend`
 
 `nordlynx` (WireGuard) and `openvpn` work with **both** sources, so when in doubt use those:
@@ -145,7 +180,7 @@ nordvpn-helper server-info us9999 --raw
 
 The image installs the official NordVPN Linux client straight from NordVPN's apt repository (the repo and signing key are added in the Dockerfile — no interactive install script). Commands are dispatched by a small Python package, `nordvpn_helper`, run as `python3 -m nordvpn_helper <command>`.
 
-For `help`, the entrypoint runs immediately. For commands that need the VPN (`wireguard-info`), it first starts `nordvpnd` (the daemon) in the background and waits up to 30 seconds for it to be ready, then execs the requested subcommand. Persistent state (login, settings, keys) lives in `/var/lib/nordvpn` — mount a named volume there to keep it across runs.
+For `help`, the entrypoint runs immediately. For commands that need the VPN (`wireguard-info`, `shell`), it first starts `nordvpnd` (the daemon) in the background and waits up to 30 seconds for it to be ready, then execs the requested subcommand. `shell` then drops into an interactive REPL that reuses that one daemon for the whole session (see [Interactive mode](#interactive-mode)). Persistent state (login, settings, keys) lives in `/var/lib/nordvpn` — mount a named volume there to keep it across runs.
 
 ## Runtime requirements
 
