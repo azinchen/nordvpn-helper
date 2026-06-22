@@ -136,19 +136,37 @@ def cmd_shell(_args: List[str]) -> int:
     Avoids per-command process/container/daemon startup: in the container the
     entrypoint starts nordvpnd once before dropping into this loop. Reads until
     EOF (Ctrl-D) or an `exit`/`quit` line; a failing command logs its error and
-    the loop continues. The prompt goes to stderr so stdout stays pure command
-    output (configs, JSON) for redirection.
+    the loop continues.
+
+    The prompt is passed to ``input()`` rather than printed separately, so it
+    rides the same stream as command output and stays correctly ordered (printing
+    it to stderr while reading stdin breaks ordering when stdout/stderr are
+    delivered as separate streams, e.g. `docker run -i` without `-t`). When stdin
+    is not a TTY (piped input) the prompt is suppressed so stdout stays pure
+    command output for redirection.
     """
-    log("interactive shell — type 'help' for commands; 'exit', 'quit' or Ctrl-D to leave")
+    # readline (when present) gives history and line editing at the prompt.
+    try:
+        import readline  # noqa: F401
+    except ImportError:
+        pass
+
+    interactive = sys.stdin.isatty()
+    prompt = f"{PROG}> "
+    if interactive:
+        log("interactive shell — type 'help' for commands; 'exit', 'quit' or Ctrl-D to leave")
+    else:
+        log("reading commands from stdin (not a TTY); run the container with -it "
+            "for an interactive prompt")
     while True:
         try:
-            print(f"{PROG}> ", end="", file=sys.stderr, flush=True)
-            line = input()
+            line = input(prompt) if interactive else input()
         except EOFError:
-            print(file=sys.stderr)  # newline after a Ctrl-D at the prompt
+            if interactive:
+                print()  # newline after a Ctrl-D at the prompt
             break
         except KeyboardInterrupt:
-            print(file=sys.stderr)  # Ctrl-C abandons the line, keeps the shell
+            print()  # Ctrl-C abandons the line, keeps the shell
             continue
 
         try:

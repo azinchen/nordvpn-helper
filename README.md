@@ -122,7 +122,10 @@ Each `docker run` creates a fresh container and (for daemon commands) waits for
 command opens an interactive REPL instead: the container starts the daemon **once**
 on launch, then you type commands line by line in that one long-lived process.
 
-Run it with an interactive TTY (`-it`):
+Run it with an interactive TTY — pass **both** `-i` and `-t`. The `-t` is not
+optional: with `-i` alone there's no pseudo-terminal, Docker delivers stdout and
+stderr as separate streams, and the prompt can appear out of order or seem to
+hang.
 
 ```bash
 docker run --rm -it \
@@ -144,8 +147,10 @@ nordvpn-helper> exit
 ```
 
 Each line takes the same arguments as the one-shot commands (quote as you would in a
-shell — parsing follows normal shell word-splitting). The prompt and diagnostics go
-to stderr, so command output on stdout stays clean for redirection. A failing command
+shell — parsing follows normal shell word-splitting), with command history and line
+editing when run on a TTY. Diagnostics go to stderr; when input is piped instead of a
+TTY (e.g. `printf 'countries\nexit\n' | docker run -i … shell`) the prompt is
+suppressed so stdout stays pure command output for redirection. A failing command
 prints its error and the shell keeps running. Quit with `exit`, `quit`, or Ctrl-D.
 
 ### Which `--tech` to use with `recommend`
