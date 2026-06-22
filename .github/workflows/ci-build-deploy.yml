@@ -63,6 +63,18 @@ jobs:
             ${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:latest
 
+      # === DESCRIPTION SYNC PHASE ===
+      # The build/push step only uploads image layers — Docker Hub's repo
+      # overview stays empty unless we push README.md to it explicitly.
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4.0.2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          short-description: ${{ github.event.repository.description }}
+          readme-filepath: ./README.md
+
       # === MONITORING PHASE ===
       - name: Build summary
         if: ${{ always() }}
