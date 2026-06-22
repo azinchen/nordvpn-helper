@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import os
-import re
 import time
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, Optional, Sequence
 
 from .proc import CommandError, log, run
 
@@ -105,16 +104,6 @@ def parse_key_values(text: str) -> Dict[str, str]:
         if key and value:
             result[key] = value
     return result
-
-
-def parse_list(text: str) -> List[str]:
-    """Parse a comma/whitespace-separated CLI list (countries, cities, groups).
-
-    NordVPN renders multi-word names with underscores (e.g. ``United_States``,
-    ``Onion_Over_VPN``), so splitting on commas and whitespace is safe.
-    """
-    tokens = re.split(r"[,\s]+", text.strip())
-    return sorted(token for token in (t.strip() for t in tokens) if token)
 
 
 def wait_until_connected(interface: str, timeout: float = 30.0) -> None:

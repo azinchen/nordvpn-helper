@@ -36,6 +36,15 @@ def _norm(text: str) -> str:
     return re.sub(r"[\s_\-]+", "", text.strip().lower())
 
 
+def _underscore(name: str) -> str:
+    """Render a display name the way the `nordvpn` CLI did: spaces -> underscores.
+
+    Keeps listings (``United_States``, ``Onion_Over_VPN``) compatible with the
+    names other commands accept (e.g. ``cities United_States``).
+    """
+    return re.sub(r"\s+", "_", name.strip())
+
+
 def _get(path: str, query: str = "", token: str = "") -> object:
     url = f"{API_BASE}/{path}"
     if query:
@@ -62,6 +71,38 @@ def technologies() -> List[str]:
     """List the technology identifiers NordVPN's API knows about."""
     data = _get("technologies")
     return sorted(t["identifier"] for t in data if t.get("identifier"))
+
+
+def countries() -> List[str]:
+    """List the countries NordVPN has servers in (names, underscored)."""
+    data = _get("servers/countries")
+    return sorted(_underscore(c["name"]) for c in data if c.get("name"))
+
+
+def cities(country: str) -> List[str]:
+    """List the cities with servers in a country (names, underscored).
+
+    ``country`` matches loosely on name or two-letter code. Raises LookupError
+    if no such country exists.
+    """
+    data = _get("servers/countries")
+    want = _norm(country)
+    match = next(
+        (c for c in data
+         if _norm(c["name"]) == want or str(c.get("code", "")).lower() == want),
+        None,
+    )
+    if match is None:
+        raise LookupError(f"unknown country: {country!r}")
+    return sorted(
+        _underscore(ci["name"]) for ci in match.get("cities", []) if ci.get("name")
+    )
+
+
+def groups() -> List[str]:
+    """List the server group titles (P2P, Double_VPN, regions, ...), underscored."""
+    data = _get("servers/groups")
+    return sorted(_underscore(g["title"]) for g in data if g.get("title"))
 
 
 def hostname(server: str) -> str:

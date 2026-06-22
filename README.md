@@ -53,8 +53,9 @@ OUTPUT_FORMAT=json nordvpn-helper wireguard-info
 ```
 
 The API-only commands (`recommend`, `openvpn-config`, `technologies`,
-`credentials`, `server-info`) need neither `--cap-add=NET_ADMIN` nor
-`--device /dev/net/tun` — drop them if that's all you run.
+`credentials`, `server-info`, `countries`, `cities`, `groups`) need neither
+`--cap-add=NET_ADMIN` nor `--device /dev/net/tun` — drop them if that's all you
+run.
 
 ## Commands
 
@@ -76,8 +77,8 @@ The API-only commands (`recommend`, `openvpn-config`, `technologies`,
 Every command prints text by default, or JSON with `OUTPUT_FORMAT=json`.
 
 - `wireguard-info` and `recommend --source cli` establish a tunnel, so they need `NET_ADMIN` + `/dev/net/tun`.
-- `account`, `countries`, `cities`, `groups` query the daemon (login, but no tunnel).
-- `help`, `credentials`, `technologies`, `openvpn-config`, `ikev2-info`, `server-info`, and `recommend` (API variant) need neither the daemon nor capabilities — they hit the HTTP API or a static download (`technologies --source cli` is a static list).
+- `account` queries the daemon (login, but no tunnel) — it reports the daemon's logged-in session.
+- `help`, `credentials`, `technologies`, `openvpn-config`, `ikev2-info`, `server-info`, `countries`, `cities`, `groups`, and `recommend` (API variant) need neither the daemon nor capabilities — they hit the HTTP API or a static download (`technologies --source cli` is a static list).
 
 Using the `nordvpn-helper` alias from [Quick start](#quick-start):
 
@@ -163,13 +164,13 @@ docker run --rm \
 
 ## Limitations
 
-- `recommend` resolves names via NordVPN's public HTTP API (`api.nordvpn.com`);
-  the other server lists come from the `nordvpn` CLI, which can't enumerate
-  individual servers.
+- `recommend`, `countries`, `cities`, and `groups` resolve names and lists via
+  NordVPN's public HTTP API (`api.nordvpn.com`); the API can't enumerate
+  individual servers by hostname for some lookups, so those are matched locally.
 - `nordvpnd` startup adds a few seconds of overhead per command, except the ones
   that skip the daemon entirely (`help`, `technologies`, `credentials`,
-  `openvpn-config`, `ikev2-info`, `server-info`, and `recommend` without
-  `--source cli`).
+  `openvpn-config`, `ikev2-info`, `server-info`, `countries`, `cities`, `groups`,
+  and `recommend` without `--source cli`).
 - Login is token-only. The current NordVPN client removed username/password
   login, and its default flow opens a browser — neither works headless, so
   `NORDVPN_TOKEN` is required.

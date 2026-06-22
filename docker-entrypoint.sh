@@ -13,11 +13,13 @@ HELPER=(python3 -m nordvpn_helper)
 # The first argument is the subcommand. Default to "help" (matches Dockerfile CMD).
 COMMAND="${1:-help}"
 
-# Commands that don't need a running daemon: serve them straight away.
-# help/technologies/credentials never touch the daemon; recommend only needs it
-# for its CLI variant (`--source cli`), which connects via the daemon.
+# Commands that don't need a running daemon: serve them straight away. These all
+# hit NordVPN's HTTP API (or a static download) rather than the local daemon, so
+# they need neither a login nor a tunnel. recommend only needs the daemon for its
+# CLI variant (`--source cli`), which connects via the daemon (handled below).
 case "${COMMAND}" in
-    help | -h | --help | "" | technologies | credentials | openvpn-config | ikev2-info)
+    help | -h | --help | "" | technologies | credentials | openvpn-config | ikev2-info \
+        | countries | cities | groups | server-info)
         exec "${HELPER[@]}" "$@"
         ;;
     recommend)

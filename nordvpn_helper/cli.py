@@ -142,23 +142,23 @@ def cmd_wireguard_info(args: List[str]) -> int:
 
 
 def cmd_countries(_args: List[str]) -> int:
-    _emit_list(nord.parse_list(nord.run_cli(["countries"], login_required=True)),
-               _output_format())
+    _emit_list(api.countries(), _output_format())
     return EXIT_OK
 
 
 def cmd_cities(args: List[str]) -> int:
     if not args:
         raise UsageError("cities requires a country, e.g. `cities United_States`")
-    country = args[0]
-    _emit_list(nord.parse_list(nord.run_cli(["cities", country], login_required=True)),
-               _output_format())
+    try:
+        result = api.cities(args[0])
+    except LookupError as exc:
+        raise UsageError(str(exc))
+    _emit_list(result, _output_format())
     return EXIT_OK
 
 
 def cmd_groups(_args: List[str]) -> int:
-    _emit_list(nord.parse_list(nord.run_cli(["groups"], login_required=True)),
-               _output_format())
+    _emit_list(api.groups(), _output_format())
     return EXIT_OK
 
 
