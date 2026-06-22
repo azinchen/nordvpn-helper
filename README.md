@@ -10,8 +10,6 @@
 [![Docker image size][dockerhub-size]][dockerhub-link]
 [![Multi-arch][multiarch-badge]][dockerhub-link]
 
-> Pull NordVPN connection configs and info from a token — non-interactively, in Docker.
-
 A non-interactive Docker wrapper around the [NordVPN Linux client](https://nordvpn.com/download/linux/). From just a login token it extracts connection configs and account info — WireGuard/NordLynx, OpenVPN, and IKEv2 setups, service credentials, and server discovery — with structured (text or JSON) output and no TTY.
 
 ## Why
