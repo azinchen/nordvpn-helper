@@ -12,11 +12,11 @@
 
 A non-interactive Docker wrapper around the [NordVPN Linux client](https://nordvpn.com/download/linux/). From just a login token it extracts connection configs and account info — WireGuard/NordLynx, OpenVPN, and IKEv2 setups, service credentials, and server discovery — with structured (text or JSON) output and no TTY.
 
-## Why
+## 💡 Why
 
 The official NordVPN client is interactive and assumes a systemd-managed host. This image packages it for one-shot, scripted use — every parameter is an env var or CLI argument, output is structured, and no TTY is required.
 
-## Image
+## 📦 Image
 
 Prebuilt images are published to Docker Hub and the GitHub Container Registry:
 
@@ -31,7 +31,7 @@ Or build it yourself:
 docker build -t azinchen/nordvpn-helper .
 ```
 
-## Quick start
+## 🚀 Quick Start
 
 Set your token and define a reusable alias for the published image. The
 capabilities, token, and volume are harmless for commands that don't use them:
@@ -57,12 +57,12 @@ The API-only commands (`recommend`, `openvpn-config`, `technologies`,
 `--cap-add=NET_ADMIN` nor `--device /dev/net/tun` — drop them if that's all you
 run.
 
-## Commands
+## 🧰 Commands
 
 | Command | What it does |
 |---|---|
 | `help` | Show usage and env vars |
-| `shell` | Start an interactive REPL — run commands line by line in one long-lived process against a single already-started daemon, instead of paying container/daemon startup per command. See [Interactive mode](#interactive-mode). Quit with `exit`, `quit`, or Ctrl-D |
+| `shell` | Start an interactive REPL — run commands line by line in one long-lived process against a single already-started daemon, instead of paying container/daemon startup per command. See [Interactive Mode](#-interactive-mode). Quit with `exit`, `quit`, or Ctrl-D |
 | `wireguard-info [target]` | Connect with NordLynx and print the WireGuard configuration. `target` is passed to `nordvpn connect` — a country, city, server, or group (e.g. `United_States Chicago`, `us9999`, `P2P`). Default: the recommended server |
 | `countries` | List the countries NordVPN has servers in |
 | `cities <country>` | List the cities with servers in a country (e.g. `cities United_States`) |
@@ -82,7 +82,7 @@ Every command prints text by default, or JSON with `OUTPUT_FORMAT=json`.
 - `shell` starts the daemon once on launch and then runs any command, so give it the tunnel capabilities if you plan to use `wireguard-info` from inside it.
 - `help`, `credentials`, `technologies`, `openvpn-config`, `ikev2-info`, `server-info`, `countries`, `cities`, `groups`, and `recommend` (API variant) need neither the daemon nor capabilities — they hit the HTTP API or a static download (`technologies --source cli` is a static list).
 
-Using the `nordvpn-helper` alias from [Quick start](#quick-start):
+Using the `nordvpn-helper` alias from [Quick Start](#-quick-start):
 
 ```bash
 nordvpn-helper countries
@@ -115,7 +115,7 @@ OUTPUT_FORMAT=json nordvpn-helper server-info pl128.nordvpn.com
 nordvpn-helper server-info us9999 --raw
 ```
 
-## Interactive mode
+## 💬 Interactive Mode
 
 Each `docker run` creates a fresh container and (for daemon commands) waits for
 `nordvpnd` to start, so running many commands back to back is slow. The `shell`
@@ -167,27 +167,27 @@ prints its error and the shell keeps running. Quit with `exit`, `quit`, or Ctrl-
 - The **cli** variant accepts only what the daemon can connect with — `nordlynx` or `openvpn` — but also understands the matching API identifiers (`wireguard_udp` → `nordlynx`, `openvpn_udp`/`openvpn_tcp` → `openvpn`). Passing an api-only tech like `ikev2` is a usage error.
 - Run `technologies --source api` or `technologies --source cli` to see the valid values for each.
 
-## Environment variables
+## ⚙️ Environment Variables
 
-| Variable | Purpose |
-|---|---|
-| `NORDVPN_TOKEN` | NordVPN login token — the only supported login method (required) |
-| `NORDVPN_INTERFACE` | Interface to read (default: `nordlynx`). NordVPN interfaces: `nordlynx` (NordLynx/WireGuard, used by `wireguard-info`), `nordtun` (OpenVPN, not readable by `wireguard-info`) |
-| `OUTPUT_FORMAT` | `text` (default) or `json`, for all commands |
+| Variable | Default | Description |
+|---|---|---|
+| `NORDVPN_TOKEN` | — (required) | NordVPN login token — the only supported login method. |
+| `NORDVPN_INTERFACE` | `nordlynx` | Interface `wireguard-info` reads. NordVPN interfaces: `nordlynx` (NordLynx/WireGuard), `nordtun` (OpenVPN, not readable by `wireguard-info`). |
+| `OUTPUT_FORMAT` | `text` | `text` or `json`, for all commands. |
 
-## Exit codes
+## 🔢 Exit Codes
 
 - `0` — success
 - `1` — runtime error (auth, network, daemon not ready, etc.)
 - `2` — usage error (unknown command, bad args)
 
-## How it works
+## 🔍 How It Works
 
 The image installs the official NordVPN Linux client straight from NordVPN's apt repository (the repo and signing key are added in the Dockerfile — no interactive install script). Commands are dispatched by a small Python package, `nordvpn_helper`, run as `python3 -m nordvpn_helper <command>`.
 
-For `help`, the entrypoint runs immediately. For commands that need the VPN (`wireguard-info`, `shell`), it first starts `nordvpnd` (the daemon) in the background and waits up to 30 seconds for it to be ready, then execs the requested subcommand. `shell` then drops into an interactive REPL that reuses that one daemon for the whole session (see [Interactive mode](#interactive-mode)). Persistent state (login, settings, keys) lives in `/var/lib/nordvpn` — mount a named volume there to keep it across runs.
+For `help`, the entrypoint runs immediately. For commands that need the VPN (`wireguard-info`, `shell`), it first starts `nordvpnd` (the daemon) in the background and waits up to 30 seconds for it to be ready, then execs the requested subcommand. `shell` then drops into an interactive REPL that reuses that one daemon for the whole session (see [Interactive Mode](#-interactive-mode)). Persistent state (login, settings, keys) lives in `/var/lib/nordvpn` — mount a named volume there to keep it across runs.
 
-## Runtime requirements
+## 📋 Runtime Requirements
 
 The container needs the network capabilities to actually establish a tunnel:
 
@@ -202,7 +202,7 @@ docker run --rm \
 
 `NET_ADMIN` lets the container configure routes and nftables. `/dev/net/tun` is the tunnel device WireGuard runs on.
 
-## Limitations
+## ⚠️ Limitations
 
 - `recommend`, `countries`, `cities`, and `groups` resolve names and lists via
   NordVPN's public HTTP API (`api.nordvpn.com`); the API can't enumerate
@@ -214,6 +214,30 @@ docker run --rm \
 - Login is token-only. The current NordVPN client removed username/password
   login, and its default flow opens a browser — neither works headless, so
   `NORDVPN_TOKEN` is required.
+
+## 🔧 Building and CI
+
+The image is a single-stage build on `ubuntu:26.04`: the official `nordvpn`
+package from NordVPN's apt repository (signing key and repo registered in the
+Dockerfile, no interactive installer), the tools needed to read the tunnel
+(`iproute2`, `iptables`, `nftables`, `wireguard-tools`) and the `nordvpn_helper`
+Python package. Build it locally with `docker build -t azinchen/nordvpn-helper .`;
+for other architectures use `docker buildx build --platform linux/arm64 .`.
+
+There are no versioned releases: every push to `main` runs the
+[`ci-build-deploy`][github-actions] workflow, which builds `linux/amd64`,
+`linux/arm64` and `linux/arm/v7` and publishes `:latest` to Docker Hub and GHCR,
+then syncs this README and the repository description to the Docker Hub page.
+Dependabot keeps the GitHub Actions versions pinned and current with weekly PRs
+(labelled `dependencies`, `github-actions`, `automation`). The NordVPN client
+itself is installed unpinned from the apt repository, so rebuilding `:latest`
+picks up new client releases.
+
+## 🐛 Issues
+
+If you have any problems with or questions about this image, please open a
+[GitHub issue][github-issues-link]. Include the command you ran, the
+`OUTPUT_FORMAT`, and the `[entrypoint]` lines from stderr.
 
 <!-- Badges -->
 [github-build]: https://img.shields.io/github/actions/workflow/status/azinchen/nordvpn-helper/ci-build-deploy.yml?branch=main&label=build
